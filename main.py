@@ -17,7 +17,7 @@ import os
 
 base_url = "https://real-time-chat-api-v1.onrender.com"
 
-SECRET_KEY = b"my_secret_key_123"  # 16 bytes for AES-128
+SECRET_KEY = b"\xdf\xe8\xebD\xe8\x81\x00\xce\xf8C\x038i\xec\x1c{\xa8\xda}\xf1\x18\xd9)p\xc14E(\x1d\xa5v\xe9"  # 16 bytes for AES-128
 
 
 def derive_key(password: bytes, salt: bytes) -> bytes:

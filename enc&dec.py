@@ -6,6 +6,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 import os
+import secrets
+
+print(secrets.token_bytes(32))
 
 SECRET_KEY = b"my_secret_key_123"  # 16 bytes for AES-128
 
