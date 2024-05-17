@@ -7,15 +7,13 @@ import requests
 import sys
 import resources_rc
 import socketio
-
-# from ui_UI import Ui_MainWindow as ui
+from ui_UI import Ui_MainWindow as ui
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
-from base64 import b64encode, b64decode
-from os import urandom
-import hashlib
+from base64 import urlsafe_b64encode, urlsafe_b64decode
+import os
 
 base_url = "https://real-time-chat-api-v1.onrender.com"
 
@@ -25,9 +23,37 @@ ui, _ = loadUiType(
 )
 
 
-backend = default_backend()
-salt = urandom(16)
+SECRET_KEY = b'my_secret_key_123'  # 16 bytes for AES-128
 
+def derive_key(password: bytes, salt: bytes) -> bytes:
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    return kdf.derive(password)
+
+def encrypt_message(message: str, key: bytes) -> str:
+    salt = os.urandom(16)
+    derived_key = derive_key(key, salt)
+    iv = os.urandom(16)
+    cipher = Cipher(algorithms.AES(derived_key), modes.CFB(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    encrypted_message = encryptor.update(message.encode()) + encryptor.finalize()
+    return urlsafe_b64encode(salt + iv + encrypted_message).decode()
+
+def decrypt_message(encrypted_message: str, key: bytes) -> str:
+    encrypted_message = urlsafe_b64decode(encrypted_message)
+    salt = encrypted_message[:16]
+    iv = encrypted_message[16:32]
+    encrypted_data = encrypted_message[32:]
+    derived_key = derive_key(key, salt)
+    cipher = Cipher(algorithms.AES(derived_key), modes.CFB(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    decrypted_message = decryptor.update(encrypted_data) + decryptor.finalize()
+    return decrypted_message.decode()
 
 class MainApp(QMainWindow, ui):
     def __init__(self):
@@ -47,7 +73,7 @@ class MainApp(QMainWindow, ui):
         self.sio.on("user_online", self.on_new_message)
         self.sio.on("user_ofline", self.on_new_message)
         self.sio.on("error", self.on_error)
-        self.sio.on("new_message", self.on_new_message)
+        self.sio.on("new_message", self.on_enc_new_message)
 
     def UI_Changes(self):
         self.tabWidget.tabBar().setVisible(False)
@@ -74,6 +100,10 @@ class MainApp(QMainWindow, ui):
 
     def on_new_message(self, message):
         self.textEdit_5.insertPlainText(message + "\n")
+
+    def on_enc_new_message(self, message):
+        decrypted_message = decrypt_message(message, SECRET_KEY)
+        self.textEdit_5.insertPlainText(decrypted_message.decode() + "\n")
 
     def connect_to_server(self, token):
         server_url = base_url
@@ -205,36 +235,10 @@ class MainApp(QMainWindow, ui):
 
     def send_message(self):
         message = str(self.textEdit_4.toPlainText())
-        self.sio.emit("new_message", message)
+        encrypted_message = encrypt_message(message, self.encryption_key)
+        self.sio.emit("new_message", encrypted_message)
         self.textEdit_5.insertPlainText(f"me: {message}" + "\n")
         self.textEdit_4.setPlainText("")
-
-    def derive_key(password: str):
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000,
-            backend=backend,
-        )
-        key = kdf.derive(password.encode())
-        return key
-
-    def encrypt_message(message: str, key: bytes) -> str:
-        iv = urandom(16)
-        cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=backend)
-        encryptor = cipher.encryptor()
-        ciphertext = encryptor.update(message.encode()) + encryptor.finalize()
-        return b64encode(iv + ciphertext).decode("utf-8")
-
-    def decrypt_message(ciphertext: str, key: bytes) -> str:
-        data = b64decode(ciphertext.encode("utf-8"))
-        iv = data[:16]
-        actual_ciphertext = data[16:]
-        cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=backend)
-        decryptor = cipher.decryptor()
-        plaintext = decryptor.update(actual_ciphertext) + decryptor.finalize()
-        return plaintext.decode("utf-8")
 
 
 def main():
