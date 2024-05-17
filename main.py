@@ -7,7 +7,8 @@ import requests
 import sys
 import resources_rc
 import socketio
-from ui_UI import Ui_MainWindow as ui
+
+# from ui_UI import Ui_MainWindow as ui
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
@@ -18,14 +19,15 @@ import hashlib
 
 base_url = "https://real-time-chat-api-v1.onrender.com"
 
-"""
+
 ui, _ = loadUiType(
     "D:/engineering year3/semester2/Secure Programming/Project/code/app/UI.ui"
 )
-"""
+
 
 backend = default_backend()
 salt = urandom(16)
+
 
 class MainApp(QMainWindow, ui):
     def __init__(self):
@@ -178,7 +180,7 @@ class MainApp(QMainWindow, ui):
             length=32,
             salt=salt,
             iterations=100000,
-            backend=backend
+            backend=backend,
         )
         key = kdf.derive(password.encode())
         return key
@@ -188,16 +190,16 @@ class MainApp(QMainWindow, ui):
         cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=backend)
         encryptor = cipher.encryptor()
         ciphertext = encryptor.update(message.encode()) + encryptor.finalize()
-        return b64encode(iv + ciphertext).decode('utf-8')
+        return b64encode(iv + ciphertext).decode("utf-8")
 
     def decrypt_message(ciphertext: str, key: bytes) -> str:
-        data = b64decode(ciphertext.encode('utf-8'))
+        data = b64decode(ciphertext.encode("utf-8"))
         iv = data[:16]
         actual_ciphertext = data[16:]
         cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=backend)
         decryptor = cipher.decryptor()
         plaintext = decryptor.update(actual_ciphertext) + decryptor.finalize()
-        return plaintext.decode('utf-8')
+        return plaintext.decode("utf-8")
 
 
 def main():
