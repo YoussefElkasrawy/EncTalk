@@ -60,6 +60,7 @@ class MainApp(QMainWindow, ui):
         self.toolButton_10.clicked.connect(lambda: self.tabWidget.setCurrentIndex(2))
         self.login_btn.clicked.connect(self.login)
         self.signup_btn.clicked.connect(self.signup)
+        self.login_toolButton_3.clicked.connect(self.update_password)
         self.toolButton_9.clicked.connect(self.send_message)
 
     def on_connect(self):
@@ -166,7 +167,41 @@ class MainApp(QMainWindow, ui):
             QMessageBox.information(self, "Network Error", str(e))
 
     def update_password(self):
-        pass
+        print("Update Password")
+        oldPass = self.lineEdit_7.text()
+        newPassword = self.lineEdit_9.text()
+        confNewPass = self.lineEdit_8.text()
+
+        json_body = {
+            "oldPassword": oldPass,
+            "newPassword": newPassword,
+            "confNewPassword": confNewPass,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+        }
+
+        api_url = f"{base_url}/api/v1/auth/update-password"
+
+        try:
+            response = requests.post(api_url, json=json_body, headers=headers)
+
+            if response.status_code == 200:
+                response_json = response.json()
+
+                QMessageBox.information(
+                    self, "Updated Successful", "Password was updated successful."
+                )
+            else:
+                error_message = (
+                    response.json().get("error", {}).get("message", "Unknown error")
+                )
+                QMessageBox.information(self, "Login Error", error_message)
+
+        except requests.RequestException as e:
+            QMessageBox.information(self, "Network Error", str(e))
 
     def send_message(self):
         message = str(self.textEdit_4.toPlainText())
