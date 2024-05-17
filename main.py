@@ -236,10 +236,12 @@ class MainApp(QMainWindow, ui):
             QMessageBox.information(self, "Network Error", str(e))
 
     def send_message(self):
-        message = str(self.textEdit_4.toPlainText())
+        message = f"{self.username}: {str(self.textEdit_4.toPlainText())}"
         encrypted_message = encrypt_message(message, SECRET_KEY)
         self.sio.emit("new_message", encrypted_message)
-        self.textEdit_5.insertPlainText(f"me: {message}" + "\n")
+        self.textEdit_5.insertPlainText(
+            f"me: {str(self.textEdit_4.toPlainText())}" + "\n"
+        )
         self.textEdit_4.setPlainText("")
 
 
