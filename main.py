@@ -7,7 +7,7 @@ import requests
 import sys
 import resources_rc
 import socketio
-#from ui_UI import Ui_MainWindow as ui
+from ui_UI import Ui_MainWindow as ui
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
@@ -16,12 +16,6 @@ from base64 import urlsafe_b64encode, urlsafe_b64decode
 import os
 
 base_url = "https://real-time-chat-api-v1.onrender.com"
-
-
-ui, _ = loadUiType(
-    "D:/engineering year3/semester2/Secure Programming/Project/code/app/UI.ui"
-)
-
 
 SECRET_KEY = b"my_secret_key_123"  # 16 bytes for AES-128
 
@@ -111,7 +105,7 @@ class MainApp(QMainWindow, ui):
 
     def on_enc_new_message(self, message):
         decrypted_message = decrypt_message(message, SECRET_KEY)
-        self.textEdit_5.insertPlainText(decrypted_message.decode() + "\n")
+        self.textEdit_5.insertPlainText(decrypted_message + "\n")
 
     def connect_to_server(self, token):
         server_url = base_url
@@ -243,7 +237,7 @@ class MainApp(QMainWindow, ui):
 
     def send_message(self):
         message = str(self.textEdit_4.toPlainText())
-        encrypted_message = encrypt_message(message, self.encryption_key)
+        encrypted_message = encrypt_message(message, SECRET_KEY)
         self.sio.emit("new_message", encrypted_message)
         self.textEdit_5.insertPlainText(f"me: {message}" + "\n")
         self.textEdit_4.setPlainText("")
