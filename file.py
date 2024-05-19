@@ -1,5 +1,4 @@
 import sys
-from ui_UI import Ui_MainWindow as ui
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
@@ -8,12 +7,16 @@ from base64 import urlsafe_b64encode, urlsafe_b64decode
 import os
 import secrets
 
-print(secrets.token_bytes(32))
+#print(secrets.token_bytes(32))
 
-SECRET_KEY = b"my_secret_key_123"  # 16 bytes for AES-128
-
+def get_password_from_user():
+    # In a real application, you'd likely prompt the user for their password securely
+    # For simplicity here, we'll just use an input statement
+    return input("Enter your password: ").encode()
 
 def derive_key(password: bytes, salt: bytes) -> bytes:
+    print("Password:", password)
+    print("Salt:", salt)
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
@@ -21,12 +24,14 @@ def derive_key(password: bytes, salt: bytes) -> bytes:
         iterations=100000,
         backend=default_backend(),
     )
-    return kdf.derive(password)
+    derived_key = kdf.derive(password)
+    print("Derived Key:", derived_key)
+    return derived_key
 
 
-def encrypt_message(message: str, key: bytes) -> str:
+def encrypt_message(message: str, password: bytes) -> str:
     salt = os.urandom(16)
-    derived_key = derive_key(key, salt)
+    derived_key = derive_key(password, salt)
     iv = os.urandom(16)
     cipher = Cipher(
         algorithms.AES(derived_key), modes.CFB(iv), backend=default_backend()
@@ -36,23 +41,29 @@ def encrypt_message(message: str, key: bytes) -> str:
     return urlsafe_b64encode(salt + iv + encrypted_message).decode()
 
 
-def decrypt_message(encrypted_message: str, key: bytes) -> str:
+def decrypt_message(encrypted_message: str, password: bytes) -> str:
     encrypted_message = urlsafe_b64decode(encrypted_message)
     salt = encrypted_message[:16]
     iv = encrypted_message[16:32]
     encrypted_data = encrypted_message[32:]
-    derived_key = derive_key(key, salt)
+    print("Salt:", salt)
+    print("IV:", iv)
+    print("Encrypted Data:", encrypted_data)
+    derived_key = derive_key(password, salt)
+    print("Derived Key:", derived_key)
     cipher = Cipher(
         algorithms.AES(derived_key), modes.CFB(iv), backend=default_backend()
     )
     decryptor = cipher.decryptor()
     decrypted_message = decryptor.update(encrypted_data) + decryptor.finalize()
+    print("Decrypted Message:", decrypted_message)
     return decrypted_message.decode()
 
 
+password = get_password_from_user()
 print(
     decrypt_message(
         "6T8fqI0JJD4VU96A3PPS-80Y_f754pqxJ1_1rqErxngSNZnYpaLP0QujqGUOMz5vz40Teybf2w8a1X1jtcvUwgoI8pc=",
-        SECRET_KEY
+        password
     )
 )
