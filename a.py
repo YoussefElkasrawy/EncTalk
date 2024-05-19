@@ -14,6 +14,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 import os
+import sounddevice as sd
+from scipy.io.wavfile import write
+import pygame
 
 base_url = "https://real-time-chat-api-v1.onrender.com"
 
@@ -85,6 +88,7 @@ class MainApp(QMainWindow, ui):
         self.sio.on("user_ofline", self.on_new_message)
         self.sio.on("error", self.on_error)
         self.sio.on("new_message", self.on_enc_new_message)
+        self.sio.on("new_audio_message", self.on_new_audio_message)
 
     def UI_Changes(self):
         self.tabWidget.tabBar().setVisible(False)
@@ -99,6 +103,9 @@ class MainApp(QMainWindow, ui):
         self.signup_btn.clicked.connect(self.signup)
         self.login_toolButton_3.clicked.connect(self.update_password)
         self.toolButton_9.clicked.connect(self.send_message)
+        self.record_audio_button.clicked.connect(
+            self.send_audio_message
+        )  # Add this line
 
     def on_connect(self):
         print("Connected to Socket.IO server.")
@@ -115,6 +122,13 @@ class MainApp(QMainWindow, ui):
     def on_enc_new_message(self, message):
         decrypted_message = decrypt_message(message, SECRET_KEY)
         self.textEdit_5.insertPlainText(decrypted_message + "\n")
+
+    def on_new_audio_message(self, audio_data):
+        audio_filename = "received_audio.wav"
+        with open(audio_filename, "wb") as audio_file:
+            audio_file.write(base64.b64decode(audio_data))
+        self.textEdit_5.insertPlainText(f"Audio message received: {audio_filename}\n")
+        self.play_audio(audio_filename)
 
     def connect_to_server(self, token):
         server_url = base_url
@@ -201,6 +215,28 @@ class MainApp(QMainWindow, ui):
         self.sio.emit("new_message", encrypted_message)
         self.textEdit_5.insertPlainText(f"me: {self.textEdit_4.toPlainText()}\n")
         self.textEdit_4.setPlainText("")
+
+    def send_audio_message(self):
+        filename = "output.wav"
+        self.record_audio(filename)
+        with open(filename, "rb") as audio_file:
+            audio_data = base64.b64encode(audio_file.read()).decode("utf-8")
+        self.sio.emit("new_audio_message", audio_data)
+        self.textEdit_5.insertPlainText("Audio message sent\n")
+
+    def record_audio(self, filename="output.wav", duration=10, fs=44100):
+        print("Recording...")
+        recording = sd.rec(int(duration * fs), samplerate=fs, channels=2)
+        sd.wait()  # Wait until recording is finished
+        write(filename, fs, recording)  # Save as WAV file
+        print("Recording finished")
+
+    def play_audio(self, filename):
+        pygame.mixer.init()
+        pygame.mixer.music.load(filename)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
 
 
 def main():
