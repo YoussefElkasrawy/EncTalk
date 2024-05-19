@@ -20,6 +20,7 @@ import pygame
 import base64
 import numpy as np
 import random
+import time
 
 base_url = "https://real-time-chat-api-v1.onrender.com"
 
@@ -127,6 +128,49 @@ class Comp:
 
         return self.frame
 
+    def audio_frame(self, audio_filename):
+        obj_n = audio_filename + str(random.random())
+        self.frame = QFrame()
+        self.frame.setObjectName(f"audio_frame_{obj_n}")
+        self.frame.setLayoutDirection(Qt.RightToLeft)
+        self.frame.setMinimumSize(QSize(0, 50))
+        self.frame.setMaximumSize(QSize(317, 50))
+        self.frame.setStyleSheet(
+            "QFrame{\n"
+            "background-color: #ffffff;\n"
+            "border-width: 0px;\n"
+            "border-style: solid;\n"
+            "border-radius: 5px;\n"
+            "}\n"
+        )
+
+        self.frame.setFrameShape(QFrame.StyledPanel)
+        self.frame.setFrameShadow(QFrame.Raised)
+
+        self.gridLayout = QGridLayout(self.frame)
+        self.gridLayout.setObjectName(f"gridLayout_audio_{obj_n}")
+
+        self.play_button = QPushButton("Play", self.frame)
+        self.play_button.setObjectName(f"play_btn_{obj_n}")
+        self.play_button.clicked.connect(lambda: self.play_audio(audio_filename))
+
+        self.stop_button = QPushButton("Stop", self.frame)
+        self.stop_button.setObjectName(f"stop_btn_{obj_n}")
+        self.stop_button.clicked.connect(self.stop_audio)
+
+        self.gridLayout.addWidget(self.play_button, 1, 1, 1, 1)
+        self.gridLayout.addWidget(self.stop_button, 1, 2, 1, 1)
+
+        return self.frame
+
+    def play_audio(self, filename):
+        pygame.mixer.init()
+        pygame.mixer.music.load(filename)
+        pygame.mixer.music.play()
+
+    def stop_audio(self):
+        pygame.mixer.music.stop()
+
 
 class MainApp(QMainWindow, ui):
     message_received = pyqtSignal(str, bool)
@@ -138,10 +182,13 @@ class MainApp(QMainWindow, ui):
         self.UI_Changes()
         self.Handle_buttons()
 
-        self.access_token = ""
-        self.username = ""
+        self.audio_folder = "audio_messages"
+        os.makedirs(self.audio_folder, exist_ok=True)
 
+        self.is_recording = False
+        self.audio_data = []
         self.sio = socketio.Client()
+
         self.sio.on("connect", self.on_connect)
         self.sio.on("disconnect", self.on_disconnect)
         self.sio.on("user_online", self.on_new_message)
@@ -150,10 +197,6 @@ class MainApp(QMainWindow, ui):
         self.sio.on("new_message", self.on_enc_new_message)
         self.sio.on("new_audio_message", self.on_new_audio_message)
 
-        self.is_recording = False
-        self.audio_data = []
-
-        # Connect signals to slots
         self.message_received.connect(self.display_message)
         self.audio_received.connect(self.display_audio_message)
 
@@ -258,24 +301,25 @@ class MainApp(QMainWindow, ui):
         api_url = f"{base_url}/api/v1/auth/update-password"
 
         try:
-            response = requests.post(api_url, json=json_body, headers=headers)
+            response = requests.put(api_url, json=json_body, headers=headers)
             response.raise_for_status()
             QMessageBox.information(
-                self, "Updated Successful", "Password was updated successfully."
+                self, "Password Update Successful", "Password update was successful."
             )
         except requests.RequestException as e:
             error_message = (
                 response.json().get("error", {}).get("message", "Unknown error")
             )
-            QMessageBox.information(self, "Update Error", error_message)
-            print(f"Update error: {e}")
+            QMessageBox.information(self, "Password Update Error", error_message)
+            print(f"Password update error: {e}")
 
     def send_message(self):
         message = f"{self.username}: {self.textEdit_4.toPlainText()}"
-        encrypted_message = encrypt_message(message, SECRET_KEY)
-        self.sio.emit("new_message", encrypted_message)
-        self.display_message(f"{self.textEdit_4.toPlainText()}", True)
-        self.textEdit_4.setPlainText("")
+        if message:
+            encrypted_message = encrypt_message(message, SECRET_KEY)
+            self.sio.emit("new_message", encrypted_message)
+            self.display_message(f"{self.textEdit_4.toPlainText()}", True)
+            self.textEdit_4.setPlainText("")
 
     def toggle_recording(self):
         if self.is_recording:
@@ -285,50 +329,54 @@ class MainApp(QMainWindow, ui):
 
     def start_recording(self):
         self.is_recording = True
-        self.toolButton_14.setText("Stop Recording")
         self.audio_data = []
-        self.recording_stream = sd.InputStream(callback=self.audio_callback)
-        self.recording_stream.start()
+        self.audio_stream = sd.InputStream(callback=self.audio_callback)
+        self.audio_stream.start()
 
     def stop_recording(self):
         self.is_recording = False
-        self.toolButton_14.setText("Record Audio")
-        self.recording_stream.stop()
-        self.recording_stream.close()
+        self.audio_stream.stop()
+        self.audio_stream.close()
 
-        filename = "audio_message.wav"
-        audio_array = np.array(self.audio_data)
-        write(filename, 44100, audio_array)
+        filename = os.path.join(
+            self.audio_folder, f"s_audio_message_{str(time.time())}.wav"
+        )
+        write(filename, 44100, np.array(self.audio_data))
+
         with open(filename, "rb") as audio_file:
-            audio_bytes = audio_file.read()
-        encoded_audio = base64.b64encode(audio_bytes).decode("utf-8")
-        self.sio.emit("new_audio_message", encoded_audio)
-        self.display_message("Audio message sent", True)
+            encoded_audio = base64.b64encode(audio_file.read()).decode("utf-8")
+            self.sio.emit("new_audio_message", encoded_audio)
+            self.display_audio_message(encoded_audio, True)
 
     def audio_callback(self, indata, frames, time, status):
-        if status:
-            print(status)
-        self.audio_data.extend(indata[:, 0])
-
-    def play_audio(self, filename):
-        pygame.mixer.init()
-        pygame.mixer.music.load(filename)
-        pygame.mixer.music.play()
+        self.audio_data.extend(indata.copy())
 
     @pyqtSlot(str, bool)
     def display_message(self, message, is_user_message):
+        msg_frame = Comp().msg_frame(message)
         if is_user_message:
-            self.verticalLayout_3.addWidget(Comp().msg_frame(message))
+            self.verticalLayout_3.addWidget(msg_frame)
             self.verticalLayout.addWidget(Comp().empty_frame())
         else:
-            self.verticalLayout.addWidget(Comp().msg_frame(message))
+            self.verticalLayout.addWidget(msg_frame)
             self.verticalLayout_3.addWidget(Comp().empty_frame())
 
     @pyqtSlot(str, bool)
-    def display_audio_message(self, message, is_user_message):
-        # Display audio messages in the same way as text messages, for example:
-        self.verticalLayout.addWidget(Comp().msg_frame(message))
-        self.verticalLayout_3.addWidget(Comp().empty_frame())
+    def display_audio_message(self, encoded_audio, is_user_message):
+        decoded_audio = base64.b64decode(encoded_audio)
+        filename = os.path.join(
+            self.audio_folder, f"r_audio_message_{str(time.time())}.wav"
+        )
+        with open(filename, "wb") as audio_file:
+            audio_file.write(decoded_audio)
+
+        audio_frame = Comp().audio_frame(filename)
+        if is_user_message:
+            self.verticalLayout_3.addWidget(audio_frame)
+            self.verticalLayout.addWidget(Comp().empty_frame())
+        else:
+            self.verticalLayout.addWidget(audio_frame)
+            self.verticalLayout_3.addWidget(Comp().empty_frame())
 
 
 def main():
