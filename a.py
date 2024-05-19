@@ -3,9 +3,9 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtNetwork import *
 from PyQt5.uic import loadUiType
+import resources_rc
 import requests
 import sys
-import resources_rc
 import socketio
 from ui_UI import Ui_MainWindow as ui
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -14,6 +14,12 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 import os
+import sounddevice as sd
+from scipy.io.wavfile import write
+import pygame
+import base64
+import numpy as np
+import random
 
 base_url = "https://real-time-chat-api-v1.onrender.com"
 
@@ -68,7 +74,64 @@ def decrypt_message(encrypted_message: str, key: bytes) -> str:
         return ""
 
 
+class Comp:
+    def empty_frame(self):
+        obj_n = str(random.random())
+        self.frame = QFrame()
+        self.frame.setObjectName(f"chat_frame_{obj_n}")
+        self.frame.setLayoutDirection(Qt.RightToLeft)
+        self.frame.setMinimumSize(QSize(0, 50))
+        self.frame.setMaximumSize(QSize(317, 50))
+
+        return self.frame
+
+    def msg_frame(self, msg):
+        obj_n = msg + str(random.random())
+        self.frame = QFrame()
+        self.frame.setObjectName(f"chat_frame_{obj_n}")
+        self.frame.setLayoutDirection(Qt.RightToLeft)
+        self.frame.setMinimumSize(QSize(0, 50))
+        self.frame.setMaximumSize(QSize(317, 50))
+        self.frame.setStyleSheet(
+            "QFrame{\n"
+            'font: 9pt "Arabic Transparent Bold";\n'
+            "color: #1e1d23;\n"
+            "background-color: #ffffff;\n"
+            "border-width: 0px;\n"
+            "border-style: solid;\n"
+            "border-radius: 5px;\n"
+            "}\n"
+            "\n"
+            "QLabel{\n"
+            'font: 11pt "Arabic Transparent Bold";\n'
+            "color: #1e1d23;\n"
+            "border-width: 0px;\n"
+            "border-style: solid;\n"
+            "border-radius: 0px;\n"
+            "}\n"
+            "\n"
+        )
+
+        self.frame.setFrameShape(QFrame.StyledPanel)
+        self.frame.setFrameShadow(QFrame.Raised)
+
+        self.gridLayout = QGridLayout(self.frame)
+        self.gridLayout.setObjectName(f"gridLayout_chat_{obj_n}")
+
+        self.msg = QLabel(self.frame)
+        self.msg.setObjectName(f"msg_f_{obj_n}")
+        self.msg.setText(f"{str(msg)}")
+        self.msg.setAlignment(Qt.AlignCenter)
+
+        self.gridLayout.addWidget(self.msg, 1, 3, 2, 1)
+
+        return self.frame
+
+
 class MainApp(QMainWindow, ui):
+    message_received = pyqtSignal(str, bool)
+    audio_received = pyqtSignal(str, bool)
+
     def __init__(self):
         super().__init__()
         self.setupUi(self)
@@ -82,9 +145,17 @@ class MainApp(QMainWindow, ui):
         self.sio.on("connect", self.on_connect)
         self.sio.on("disconnect", self.on_disconnect)
         self.sio.on("user_online", self.on_new_message)
-        self.sio.on("user_ofline", self.on_new_message)
+        self.sio.on("user_offline", self.on_new_message)
         self.sio.on("error", self.on_error)
         self.sio.on("new_message", self.on_enc_new_message)
+        self.sio.on("new_audio_message", self.on_new_audio_message)
+
+        self.is_recording = False
+        self.audio_data = []
+
+        # Connect signals to slots
+        self.message_received.connect(self.display_message)
+        self.audio_received.connect(self.display_audio_message)
 
     def UI_Changes(self):
         self.tabWidget.tabBar().setVisible(False)
@@ -99,6 +170,7 @@ class MainApp(QMainWindow, ui):
         self.signup_btn.clicked.connect(self.signup)
         self.login_toolButton_3.clicked.connect(self.update_password)
         self.toolButton_9.clicked.connect(self.send_message)
+        self.toolButton_14.clicked.connect(self.toggle_recording)
 
     def on_connect(self):
         print("Connected to Socket.IO server.")
@@ -110,16 +182,19 @@ class MainApp(QMainWindow, ui):
         QMessageBox.information(self, "Error", error)
 
     def on_new_message(self, message):
-        self.textEdit_5.insertPlainText(message + "\n")
+        self.message_received.emit(message, False)
 
     def on_enc_new_message(self, message):
         decrypted_message = decrypt_message(message, SECRET_KEY)
-        self.textEdit_5.insertPlainText(decrypted_message + "\n")
+        self.message_received.emit(decrypted_message, False)
+
+    def on_new_audio_message(self, audio_data):
+        self.audio_received.emit(audio_data, False)
 
     def connect_to_server(self, token):
         server_url = base_url
         self.sio.connect(server_url, auth={"token": token}, transports=["websocket"])
-        self.textEdit_5.insertPlainText(self.username + " join chat" + "\n")
+        self.display_message(self.username + " joined chat", True)
 
     def login(self):
         username = self.lineEdit_3.text()
@@ -186,7 +261,7 @@ class MainApp(QMainWindow, ui):
             response = requests.post(api_url, json=json_body, headers=headers)
             response.raise_for_status()
             QMessageBox.information(
-                self, "Updated Successful", "Password was updated successful."
+                self, "Updated Successful", "Password was updated successfully."
             )
         except requests.RequestException as e:
             error_message = (
@@ -199,8 +274,61 @@ class MainApp(QMainWindow, ui):
         message = f"{self.username}: {self.textEdit_4.toPlainText()}"
         encrypted_message = encrypt_message(message, SECRET_KEY)
         self.sio.emit("new_message", encrypted_message)
-        self.textEdit_5.insertPlainText(f"me: {self.textEdit_4.toPlainText()}\n")
+        self.display_message(f"{self.textEdit_4.toPlainText()}", True)
         self.textEdit_4.setPlainText("")
+
+    def toggle_recording(self):
+        if self.is_recording:
+            self.stop_recording()
+        else:
+            self.start_recording()
+
+    def start_recording(self):
+        self.is_recording = True
+        self.toolButton_14.setText("Stop Recording")
+        self.audio_data = []
+        self.recording_stream = sd.InputStream(callback=self.audio_callback)
+        self.recording_stream.start()
+
+    def stop_recording(self):
+        self.is_recording = False
+        self.toolButton_14.setText("Record Audio")
+        self.recording_stream.stop()
+        self.recording_stream.close()
+
+        filename = "audio_message.wav"
+        audio_array = np.array(self.audio_data)
+        write(filename, 44100, audio_array)
+        with open(filename, "rb") as audio_file:
+            audio_bytes = audio_file.read()
+        encoded_audio = base64.b64encode(audio_bytes).decode("utf-8")
+        self.sio.emit("new_audio_message", encoded_audio)
+        self.display_message("Audio message sent", True)
+
+    def audio_callback(self, indata, frames, time, status):
+        if status:
+            print(status)
+        self.audio_data.extend(indata[:, 0])
+
+    def play_audio(self, filename):
+        pygame.mixer.init()
+        pygame.mixer.music.load(filename)
+        pygame.mixer.music.play()
+
+    @pyqtSlot(str, bool)
+    def display_message(self, message, is_user_message):
+        if is_user_message:
+            self.verticalLayout_3.addWidget(Comp().msg_frame(message))
+            self.verticalLayout.addWidget(Comp().empty_frame())
+        else:
+            self.verticalLayout.addWidget(Comp().msg_frame(message))
+            self.verticalLayout_3.addWidget(Comp().empty_frame())
+
+    @pyqtSlot(str, bool)
+    def display_audio_message(self, message, is_user_message):
+        # Display audio messages in the same way as text messages, for example:
+        self.verticalLayout.addWidget(Comp().msg_frame(message))
+        self.verticalLayout_3.addWidget(Comp().empty_frame())
 
 
 def main():
