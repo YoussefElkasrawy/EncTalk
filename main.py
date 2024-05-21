@@ -368,14 +368,17 @@ class MainApp(QMainWindow, ui):
         write(filename, 44100, audio_data)
         with open(filename, "rb") as audio_file:
             encoded_audio = base64.b64encode(audio_file.read()).decode()
-            self.sio.emit(
-                "new_audio_message",
-                {
-                    "username": self.username,
-                    "data": encoded_audio,
-                    "time": timestamp,
-                },
+            encrypted_message = encrypt_message(
+                str(
+                    {
+                        "username": self.username,
+                        "data": encoded_audio,
+                        "time": timestamp,
+                    }
+                ),
+                SECRET_KEY,
             )
+            self.sio.emit("new_audio_message", encrypted_message)
             self.audio_received.emit(
                 {"username": self.username, "data": filename, "time": timestamp}, True
             )
@@ -404,6 +407,8 @@ class MainApp(QMainWindow, ui):
         self.message_received.emit(message_data, False)
 
     def on_new_audio_message(self, audio_message):
+        decrypted_message = decrypt_message(audio_message, SECRET_KEY)
+        audio_message = eval(decrypted_message)
         audio_message["data"] = base64.b64decode(audio_message["data"])
         filename = os.path.join(
             self.audio_folder, f"r_audio_message_{str(time.time())}.wav"
