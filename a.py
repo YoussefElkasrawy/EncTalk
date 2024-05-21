@@ -81,67 +81,81 @@ class Comp:
         self.frame = QFrame()
         self.frame.setObjectName(f"chat_frame_{obj_n}")
         self.frame.setLayoutDirection(Qt.RightToLeft)
-        self.frame.setMinimumSize(QSize(0, 50))
-        self.frame.setMaximumSize(QSize(317, 50))
+        self.frame.setMinimumSize(QSize(0, 70))
+        self.frame.setMaximumWidth(317)
+        self.frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         return self.frame
 
     def msg_frame(self, msg):
-        obj_n = msg + str(random.random())
+        obj_n = str(random.random())
         self.frame = QFrame()
         self.frame.setObjectName(f"chat_frame_{obj_n}")
         self.frame.setLayoutDirection(Qt.RightToLeft)
-        self.frame.setMinimumSize(QSize(0, 50))
-        self.frame.setMaximumSize(QSize(317, 50))
+        self.frame.setMinimumSize(QSize(0, 70))
+        self.frame.setMaximumWidth(317)
+        self.frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.frame.setStyleSheet(
-            "QFrame{\n"
-            'font: 9pt "Arabic Transparent Bold";\n'
-            "color: #1e1d23;\n"
-            "background-color: #ffffff;\n"
-            "border-width: 0px;\n"
-            "border-style: solid;\n"
-            "border-radius: 5px;\n"
-            "}\n"
-            "\n"
-            "QLabel{\n"
-            'font: 11pt "Arabic Transparent Bold";\n'
-            "color: #1e1d23;\n"
-            "border-width: 0px;\n"
-            "border-style: solid;\n"
-            "border-radius: 0px;\n"
-            "}\n"
-            "\n"
+            "QFrame {"
+            "   font: 9pt 'Arial';"
+            "   color: #1e1d23;"
+            "   background-color: #dcf8c6;"  # WhatsApp light green background
+            "   border-width: 1px;"
+            "   border-style: solid;"
+            "   border-radius: 10px;"
+            "   padding: 5px;"
+            "}"
+            "QLabel {"
+            "   font: 11pt 'Arial';"
+            "   color: #1e1d23;"
+            "}"
         )
-
         self.frame.setFrameShape(QFrame.StyledPanel)
         self.frame.setFrameShadow(QFrame.Raised)
 
         self.gridLayout = QGridLayout(self.frame)
         self.gridLayout.setObjectName(f"gridLayout_chat_{obj_n}")
 
+        self.username_label = QLabel(self.frame)
+        self.username_label.setObjectName(f"username_{obj_n}")
+        self.username_label.setText(msg["username"])
+        self.username_label.setAlignment(Qt.AlignLeft)
+
+        self.time_label = QLabel(self.frame)
+        self.time_label.setObjectName(f"time_{obj_n}")
+        self.time_label.setText(msg["time"])
+        self.time_label.setAlignment(Qt.AlignRight)
+
         self.msg = QLabel(self.frame)
         self.msg.setObjectName(f"msg_f_{obj_n}")
-        self.msg.setText(f"{str(msg)}")
-        self.msg.setAlignment(Qt.AlignCenter)
+        self.msg.setText(f"{str(msg['data'])}")
+        self.msg.setWordWrap(True)
+        self.msg.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
-        self.gridLayout.addWidget(self.msg, 1, 3, 2, 1)
+        self.gridLayout.addWidget(self.username_label, 0, 0, 1, 2)
+        self.gridLayout.addWidget(self.time_label, 0, 2, 1, 1)
+        self.gridLayout.addWidget(self.msg, 1, 0, 1, 3)
 
         return self.frame
 
-    def audio_frame(self, audio_filename):
-        obj_n = audio_filename + str(random.random())
+    def audio_frame(self, audio_message):
+        obj_n = audio_message["data"] + str(random.random())
         self.frame = QFrame()
         self.frame.setObjectName(f"audio_frame_{obj_n}")
         self.frame.setLayoutDirection(Qt.RightToLeft)
-        self.frame.setMinimumSize(QSize(0, 50))
-        self.frame.setMaximumSize(QSize(317, 50))
+        self.frame.setMinimumSize(QSize(0, 70))
+        self.frame.setMaximumWidth(317)
+        self.frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.frame.setStyleSheet(
-            "QFrame{\n"
-            "background-color: #ffffff;\n"
-            "border-width: 0px;\n"
-            "border-style: solid;\n"
-            "border-radius: 5px;\n"
-            "}\n"
+            "QFrame {"
+            "   font: 9pt 'Arial';"
+            "   color: #1e1d23;"
+            "   background-color: #dcf8c6;"  # WhatsApp light green background
+            "   border-width: 1px;"
+            "   border-style: solid;"
+            "   border-radius: 10px;"
+            "   padding: 5px;"
+            "}"
         )
 
         self.frame.setFrameShape(QFrame.StyledPanel)
@@ -150,16 +164,28 @@ class Comp:
         self.gridLayout = QGridLayout(self.frame)
         self.gridLayout.setObjectName(f"gridLayout_audio_{obj_n}")
 
+        self.username_label = QLabel(self.frame)
+        self.username_label.setObjectName(f"username_{obj_n}")
+        self.username_label.setText(audio_message["username"])
+        self.username_label.setAlignment(Qt.AlignLeft)
+
+        self.time_label = QLabel(self.frame)
+        self.time_label.setObjectName(f"time_{obj_n}")
+        self.time_label.setText(audio_message["time"])
+        self.time_label.setAlignment(Qt.AlignRight)
+
         self.play_button = QPushButton("Play", self.frame)
         self.play_button.setObjectName(f"play_btn_{obj_n}")
-        self.play_button.clicked.connect(lambda: self.play_audio(audio_filename))
+        self.play_button.clicked.connect(lambda: self.play_audio(audio_message["data"]))
 
         self.stop_button = QPushButton("Stop", self.frame)
         self.stop_button.setObjectName(f"stop_btn_{obj_n}")
         self.stop_button.clicked.connect(self.stop_audio)
 
-        self.gridLayout.addWidget(self.play_button, 1, 1, 1, 1)
-        self.gridLayout.addWidget(self.stop_button, 1, 2, 1, 1)
+        self.gridLayout.addWidget(self.username_label, 0, 0, 1, 1)
+        self.gridLayout.addWidget(self.time_label, 0, 1, 1, 1)
+        self.gridLayout.addWidget(self.play_button, 1, 0, 1, 1)
+        self.gridLayout.addWidget(self.stop_button, 1, 1, 1, 1)
 
         return self.frame
 
@@ -173,8 +199,8 @@ class Comp:
 
 
 class MainApp(QMainWindow, ui):
-    message_received = pyqtSignal(str, bool)
-    audio_received = pyqtSignal(str, bool)
+    message_received = pyqtSignal(dict, bool)
+    audio_received = pyqtSignal(dict, bool)
 
     def __init__(self):
         super().__init__()
@@ -209,35 +235,16 @@ class MainApp(QMainWindow, ui):
         self.toolButton_12.clicked.connect(lambda: self.tabWidget.setCurrentIndex(0))
         self.toolButton_13.clicked.connect(lambda: self.tabWidget.setCurrentIndex(3))
         self.toolButton_10.clicked.connect(lambda: self.tabWidget.setCurrentIndex(2))
-        self.login_btn.clicked.connect(self.login)
         self.signup_btn.clicked.connect(self.signup)
-        self.login_toolButton_3.clicked.connect(self.update_password)
+        self.login_btn.clicked.connect(self.login)
+        self.up_btn.clicked.connect(self.update_password)
         self.toolButton_9.clicked.connect(self.send_message)
-        self.toolButton_14.clicked.connect(self.toggle_recording)
-
-    def on_connect(self):
-        print("Connected to Socket.IO server.")
-
-    def on_disconnect(self):
-        print("Disconnected from Socket.IO server.")
-
-    def on_error(self, error):
-        QMessageBox.information(self, "Error", error)
-
-    def on_new_message(self, message):
-        self.message_received.emit(message, False)
-
-    def on_enc_new_message(self, message):
-        decrypted_message = decrypt_message(message, SECRET_KEY)
-        self.message_received.emit(decrypted_message, False)
-
-    def on_new_audio_message(self, audio_data):
-        self.audio_received.emit(audio_data, False)
+        self.toolButton_14.pressed.connect(self.start_recording)
+        self.toolButton_14.released.connect(self.stop_recording)
 
     def connect_to_server(self, token):
         server_url = base_url
         self.sio.connect(server_url, auth={"token": token}, transports=["websocket"])
-        self.display_message(self.username + " joined chat", True)
 
     def login(self):
         username = self.lineEdit_3.text()
@@ -314,44 +321,99 @@ class MainApp(QMainWindow, ui):
             print(f"Password update error: {e}")
 
     def send_message(self):
-        message = f"{self.username}: {self.textEdit_4.toPlainText()}"
-        if message:
-            encrypted_message = encrypt_message(message, SECRET_KEY)
-            self.sio.emit("new_message", encrypted_message)
-            self.display_message(f"{self.textEdit_4.toPlainText()}", True)
-            self.textEdit_4.setPlainText("")
-
-    def toggle_recording(self):
-        if self.is_recording:
-            self.stop_recording()
+        message = self.textEdit_4.toPlainText()
+        if len(message) == 0:
+            self.label_10.setText("Cannot send empty message")
         else:
-            self.start_recording()
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            encrypted_message = encrypt_message(
+                str({"username": self.username, "data": message, "time": timestamp}),
+                SECRET_KEY,
+            )
+            self.sio.emit("new_message", encrypted_message)
+            self.textEdit_4.setText("")
+            self.message_received.emit(
+                {"username": self.username, "data": message, "time": timestamp}, True
+            )
 
     def start_recording(self):
+        icon = QIcon()
+        icon.addFile(
+            ":/images/icons/cil-media-pause.png", QSize(), QIcon.Normal, QIcon.Off
+        )
+        self.toolButton_14.setIcon(icon)
+
         self.is_recording = True
         self.audio_data = []
-        self.audio_stream = sd.InputStream(callback=self.audio_callback)
-        self.audio_stream.start()
+        self.stream = sd.InputStream(callback=self.audio_callback)
+        self.stream.start()
 
     def stop_recording(self):
-        self.is_recording = False
-        self.audio_stream.stop()
-        self.audio_stream.close()
-
-        filename = os.path.join(
-            self.audio_folder, f"s_audio_message_{str(time.time())}.wav"
+        icon = QIcon()
+        icon.addFile(
+            ":/images/icons/cil-microphone.png", QSize(), QIcon.Normal, QIcon.Off
         )
-        write(filename, 44100, np.array(self.audio_data))
+        self.toolButton_14.setIcon(icon)
 
+        self.is_recording = False
+        self.stream.stop()
+        self.stream.close()
+
+        audio_data = np.concatenate(self.audio_data, axis=0)
+        audio_data = np.int16(audio_data * 32767)
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        filename = os.path.join(
+            self.audio_folder, f"{self.username}_{str(time.time())}.wav"
+        )
+        write(filename, 44100, audio_data)
         with open(filename, "rb") as audio_file:
-            encoded_audio = base64.b64encode(audio_file.read()).decode("utf-8")
-            self.sio.emit("new_audio_message", encoded_audio)
-            self.display_audio_message(encoded_audio, True)
+            encoded_audio = base64.b64encode(audio_file.read()).decode()
+            self.sio.emit(
+                "new_audio_message",
+                {
+                    "username": self.username,
+                    "data": encoded_audio,
+                    "time": timestamp,
+                },
+            )
+            self.audio_received.emit(
+                {"username": self.username, "data": filename, "time": timestamp}, True
+            )
 
     def audio_callback(self, indata, frames, time, status):
-        self.audio_data.extend(indata.copy())
+        if self.is_recording:
+            self.audio_data.append(indata.copy())
 
-    @pyqtSlot(str, bool)
+    def on_connect(self):
+        print("Connected to server")
+
+    def on_disconnect(self):
+        print("Disconnected from server")
+
+    def on_error(self, error):
+        print("Error:", error)
+
+    def on_new_message(self, message):
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        message = {"username": "server", "data": message, "time": timestamp}
+        self.message_received.emit(message, False)
+
+    def on_enc_new_message(self, message):
+        decrypted_message = decrypt_message(message, SECRET_KEY)
+        message_data = eval(decrypted_message)
+        self.message_received.emit(message_data, False)
+
+    def on_new_audio_message(self, audio_message):
+        audio_message["data"] = base64.b64decode(audio_message["data"])
+        filename = os.path.join(
+            self.audio_folder, f"r_audio_message_{str(time.time())}.wav"
+        )
+        with open(filename, "wb") as audio_file:
+            audio_file.write(audio_message["data"])
+        audio_message["data"] = filename
+        self.audio_received.emit(audio_message, False)
+
+    @pyqtSlot(dict, bool)
     def display_message(self, message, is_user_message):
         msg_frame = Comp().msg_frame(message)
         if is_user_message:
@@ -361,16 +423,9 @@ class MainApp(QMainWindow, ui):
             self.verticalLayout.addWidget(msg_frame)
             self.verticalLayout_3.addWidget(Comp().empty_frame())
 
-    @pyqtSlot(str, bool)
-    def display_audio_message(self, encoded_audio, is_user_message):
-        decoded_audio = base64.b64decode(encoded_audio)
-        filename = os.path.join(
-            self.audio_folder, f"r_audio_message_{str(time.time())}.wav"
-        )
-        with open(filename, "wb") as audio_file:
-            audio_file.write(decoded_audio)
-
-        audio_frame = Comp().audio_frame(filename)
+    @pyqtSlot(dict, bool)
+    def display_audio_message(self, audio_message, is_user_message):
+        audio_frame = Comp().audio_frame(audio_message)
         if is_user_message:
             self.verticalLayout_3.addWidget(audio_frame)
             self.verticalLayout.addWidget(Comp().empty_frame())
@@ -383,7 +438,7 @@ def main():
     app = QApplication(sys.argv)
     window = MainApp()
     window.show()
-    app.exec()
+    app.exec_()
 
 
 if __name__ == "__main__":
