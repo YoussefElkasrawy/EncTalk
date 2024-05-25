@@ -1,1 +1,3 @@
 pyuic5 -o ui_UI.py UI.ui
+
+pyinstaller --onefile --windowed main.py
